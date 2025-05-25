@@ -39,6 +39,40 @@ ArticleSchema.pre('save', function(next) {
 
 const Article = mongoose.model('Article', ArticleSchema);
 
+// Define Subscriber schema
+const SubscriberSchema = new mongoose.Schema({
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+    lowercase: true,
+    match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address']
+  },
+  name: {
+    type: String,
+    trim: true
+  },
+  subscribedAt: {
+    type: Date,
+    default: Date.now
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  preferences: {
+    categories: [String],
+    frequency: {
+      type: String,
+      enum: ['daily', 'weekly', 'monthly'],
+      default: 'weekly'
+    }
+  }
+}, { timestamps: true });
+
+const Subscriber = mongoose.model('Subscriber', SubscriberSchema);
+
 // Get all articles
 router.get('/', async (req, res) => {
   try {
@@ -187,6 +221,129 @@ router.get('/tag/:tagName', async (req, res) => {
     res.json(articles);
   } catch (err) {
     console.error('Error fetching articles by tag:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Add new subscriber
+router.post('/subscribe', async (req, res) => {
+  try {
+    const { email, name, preferences } = req.body;
+    
+    // Check if email is provided
+    if (!email) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email is required' 
+      });
+    }
+    
+    // Check if subscriber already exists
+    const existingSubscriber = await Subscriber.findOne({ email });
+    if (existingSubscriber) {
+      // If subscriber exists but was inactive, reactivate them
+      if (!existingSubscriber.isActive) {
+        existingSubscriber.isActive = true;
+        existingSubscriber.subscribedAt = Date.now();
+        if (name) existingSubscriber.name = name;
+        if (preferences) existingSubscriber.preferences = {
+          ...existingSubscriber.preferences,
+          ...preferences
+        };
+        
+        await existingSubscriber.save();
+        return res.status(200).json({
+          success: true,
+          message: 'Subscription reactivated successfully',
+          subscriber: {
+            email: existingSubscriber.email,
+            name: existingSubscriber.name
+          }
+        });
+      }
+      
+      return res.status(200).json({
+        success: true,
+        message: 'Already subscribed',
+        subscriber: {
+          email: existingSubscriber.email,
+          name: existingSubscriber.name
+        }
+      });
+    }
+    
+    // Create new subscriber
+    const subscriber = new Subscriber({
+      email,
+      name,
+      preferences
+    });
+    
+    await subscriber.save();
+    
+    res.status(201).json({ 
+      success: true,
+      message: 'Subscribed successfully',
+      subscriber: {
+        email: subscriber.email,
+        name: subscriber.name
+      }
+    });
+  } catch (err) {
+    console.error('Error adding subscriber:', err);
+    res.status(500).json({ 
+      success: false,
+      message: err.message 
+    });
+  }
+});
+
+// Unsubscribe route
+router.post('/unsubscribe', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email is required' 
+      });
+    }
+    
+    const subscriber = await Subscriber.findOne({ email });
+    
+    if (!subscriber) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Subscriber not found' 
+      });
+    }
+    
+    // Set as inactive instead of deleting
+    subscriber.isActive = false;
+    await subscriber.save();
+    
+    res.status(200).json({ 
+      success: true,
+      message: 'Unsubscribed successfully' 
+    });
+  } catch (err) {
+    console.error('Error unsubscribing:', err);
+    res.status(500).json({ 
+      success: false,
+      message: err.message 
+    });
+  }
+});
+
+// Get all subscribers (Admin route - you should add authentication)
+router.get('/subscribers', async (req, res) => {
+  try {
+    const subscribers = await Subscriber.find({ isActive: true })
+                                       .sort({ subscribedAt: -1 });
+    res.json(subscribers);
+  } catch (err) {
+    console.error('Error fetching subscribers:', err);
     res.status(500).json({ message: err.message });
   }
 });
