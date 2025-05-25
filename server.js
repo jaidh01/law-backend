@@ -28,7 +28,6 @@ app.use(cors({
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:5173',
-      'http://192.168.1.5:5173', // Add your local IP for testing on mobile
       'https://law-livid-theta.vercel.app/',
       '/^https:\/\/law.*\.vercel\.app$/',
       // Allow requests from any device on the local network
