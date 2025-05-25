@@ -34,6 +34,7 @@ app.use(cors({
       /^http:\/\/10\.\d+\.\d+\.\d+:\d+$/,
       /^http:\/\/172\.\d+\.\d+\.\d+:\d+$/,
       // Add your production domain when ready
+      'https://law-livid-theta.vercel.app',
     ];
     
     if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
