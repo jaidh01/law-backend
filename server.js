@@ -1,11 +1,12 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
-import compression from 'compression'; // Add this package via npm
+import compression from 'compression';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import articleRoutes from './routes/articleRoutes.js';
+import subscribeRoutes from './routes/subscribeRoutes.js'; // Import new routes
 
 // Get current file directory (ES module equivalent of __dirname)
 const __filename = fileURLToPath(import.meta.url);
@@ -35,8 +36,6 @@ app.use(cors({
       /^http:\/\/192\.168\.\d+\.\d+:\d+$/,
       /^http:\/\/10\.\d+\.\d+\.\d+:\d+$/,
       /^http:\/\/172\.\d+\.\d+\.\d+:\d+$/,
-      // Add your production domain when ready
-      'https://law-livid-theta.vercel.app',
     ];
     
     if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
@@ -62,6 +61,7 @@ mongoose.connect(process.env.MONGODB_URI, {
 
 // Routes
 app.use('/api/articles', articleRoutes);
+app.use('/api/subscribe', subscribeRoutes); // Add the new subscribe routes
 
 // Health check endpoint useful for testing API connectivity
 app.get('/api/health', (req, res) => {
