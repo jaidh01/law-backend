@@ -226,6 +226,9 @@ router.get('/tag/:tagName', async (req, res) => {
 });
 
 // Add new subscriber
+// Modify the subscriber save section in the /subscribe route
+
+// Find this section in your existing subscribe route
 router.post('/subscribe', async (req, res) => {
   try {
     const { email, name, preferences } = req.body;
@@ -272,25 +275,41 @@ router.post('/subscribe', async (req, res) => {
       });
     }
     
-    // Create new subscriber
+    // Create new subscriber with added debugging
+    console.log('Creating new subscriber with email:', email);
     const subscriber = new Subscriber({
       email,
       name,
       preferences
     });
     
-    await subscriber.save();
+    console.log('Subscriber object before save:', subscriber);
     
-    res.status(201).json({ 
-      success: true,
-      message: 'Subscribed successfully',
-      subscriber: {
-        email: subscriber.email,
-        name: subscriber.name
-      }
-    });
+    try {
+      const savedSubscriber = await subscriber.save();
+      console.log('Subscriber saved successfully:', savedSubscriber);
+      
+      // Verify the subscriber was actually saved
+      const verifySubscriber = await Subscriber.findOne({ email });
+      console.log('Verification query result:', verifySubscriber);
+      
+      res.status(201).json({ 
+        success: true,
+        message: 'Subscribed successfully',
+        subscriber: {
+          email: subscriber.email,
+          name: subscriber.name
+        }
+      });
+    } catch (saveErr) {
+      console.error('Error during subscriber.save():', saveErr);
+      res.status(500).json({ 
+        success: false,
+        message: saveErr.message 
+      });
+    }
   } catch (err) {
-    console.error('Error adding subscriber:', err);
+    console.error('Error in subscribe route:', err);
     res.status(500).json({ 
       success: false,
       message: err.message 
@@ -348,6 +367,96 @@ router.get('/subscribers', async (req, res) => {
   }
 });
 
+// Test route for subscriber creation
+router.get('/test/create-subscriber', async (req, res) => {
+  try {
+    const testEmail = `test${Date.now()}@example.com`;
+    
+    console.log('Creating test subscriber with email:', testEmail);
+    
+    const subscriber = new Subscriber({
+      email: testEmail,
+      name: 'Test User',
+      preferences: {
+        categories: ['Test Category'],
+        frequency: 'weekly'
+      }
+    });
+    
+    console.log('Test subscriber object before save:', subscriber);
+    
+    const savedSubscriber = await subscriber.save();
+    console.log('Test subscriber saved successfully:', savedSubscriber);
+    
+    // Check if document was saved correctly
+    const checkSubscriber = await Subscriber.findOne({ email: testEmail });
+    console.log('Verification check result:', checkSubscriber);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Test subscriber created',
+      subscriber: savedSubscriber,
+      verificationCheck: checkSubscriber ? 'Document found in DB' : 'Document NOT found in DB'
+    });
+  } catch (err) {
+    console.error('Error in test subscriber creation:', err);
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+});
+
+// Route to count subscribers
+router.get('/subscribers/count', async (req, res) => {
+  try {
+    const count = await Subscriber.countDocuments({ isActive: true });
+    const totalCount = await Subscriber.countDocuments();
+    
+    console.log('Active subscribers count:', count);
+    console.log('Total subscribers count:', totalCount);
+    
+    // Add a sample subscriber directly to verify collection access
+    const testEmail = `count-test-${Date.now()}@example.com`;
+    const testSubscriber = new Subscriber({
+      email: testEmail,
+      name: 'Count Test User'
+    });
+    
+    await testSubscriber.save();
+    console.log('Count test subscriber saved:', testEmail);
+    
+    // Check total count again
+    const newTotalCount = await Subscriber.countDocuments();
+    
+    res.json({ 
+      activeCount: count, 
+      totalCount: totalCount,
+      newTotalCount: newTotalCount,
+      testEmail: testEmail
+    });
+  } catch (err) {
+    console.error('Error counting subscribers:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Route to list all subscribers regardless of isActive status
+router.get('/subscribers/all', async (req, res) => {
+  try {
+    const allSubscribers = await Subscriber.find();
+    console.log('All subscribers query result:', allSubscribers);
+    
+    res.json({
+      count: allSubscribers.length,
+      subscribers: allSubscribers
+    });
+  } catch (err) {
+    console.error('Error listing all subscribers:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // Get article by slug
 router.get('/:slug', async (req, res) => {
   try {
@@ -358,6 +467,50 @@ router.get('/:slug', async (req, res) => {
     res.json(article);
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+// Test MongoDB connection
+router.get('/test/db-status', async (req, res) => {
+  try {
+    // Check MongoDB connection state
+    const connectionState = mongoose.connection.readyState;
+    const stateMap = {
+      0: 'disconnected',
+      1: 'connected',
+      2: 'connecting',
+      3: 'disconnecting',
+      99: 'uninitialized'
+    };
+    
+    // Try to list collections to test access
+    const collections = await mongoose.connection.db.listCollections().toArray();
+    const collectionNames = collections.map(c => c.name);
+    
+    // Try to get subscriber collection stats if it exists
+    let subscriberStats = null;
+    if (collectionNames.includes('subscribers')) {
+      subscriberStats = await mongoose.connection.db.collection('subscribers').stats();
+    }
+    
+    res.json({
+      connection: {
+        state: connectionState,
+        stateDescription: stateMap[connectionState],
+        host: mongoose.connection.host,
+        name: mongoose.connection.name
+      },
+      collections: collectionNames,
+      subscriberCollection: subscriberStats,
+      models: Object.keys(mongoose.models),
+      subscriberModelName: Subscriber.collection.name
+    });
+  } catch (err) {
+    console.error('Error testing DB connection:', err);
+    res.status(500).json({ 
+      success: false,
+      message: err.message 
+    });
   }
 });
 
