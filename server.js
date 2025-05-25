@@ -21,7 +21,7 @@ app.use(cors({
       'http://localhost:3000',
       'http://localhost:5173',
       'https://law-livid-theta.vercel.app',
-      'https://law-frontend.vercel.app',
+      /^https:\/\/law.*\.vercel\.app$/
       'https://law-backend-44pr.onrender.com'
     ];
 
