@@ -54,7 +54,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/articles', articleRoutes);
-app.use('/api/subscribe', subscribeRoutes);
+
 
 // Start server
 app.listen(PORT, () => {
