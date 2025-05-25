@@ -64,6 +64,38 @@ router.get('/featured', async (req, res) => {
   }
 });
 
+// Get articles by category only
+router.get('/category/:categorySlug', async (req, res) => {
+  try {
+    const { categorySlug } = req.params;
+
+    const categoryName = categorySlug
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+
+    const singularCategory = categoryName.endsWith('s') 
+      ? categoryName.slice(0, -1) 
+      : categoryName;
+    const pluralCategory = !categoryName.endsWith('s') 
+      ? categoryName + 's' 
+      : categoryName;
+
+    const articles = await Article.find({
+      $or: [
+        { category: new RegExp(categoryName, 'i') },
+        { category: new RegExp(singularCategory, 'i') },
+        { category: new RegExp(pluralCategory, 'i') }
+      ]
+    }).sort({ published_date: -1 });
+
+    res.json(articles);
+  } catch (err) {
+    console.error('Error fetching articles by category:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // Get articles by category and subcategory
 router.get('/category/:categorySlug/subcategory/:subcategorySlug', async (req, res) => {
   try {
