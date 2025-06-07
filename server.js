@@ -1,11 +1,11 @@
 import express from 'express';
-import mongoose from 'mongoose';
 import cors from 'cors';
 import compression from 'compression';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import articleRoutes from './routes/articleRoutes.js';
+import healthRoutes from './routes/healthRoutes.js';
 
 // Get current file directory (ES module equivalent of __dirname)
 const __filename = fileURLToPath(import.meta.url);
@@ -33,6 +33,9 @@ app.use(cors({
       'https://law-livid-theta.vercel.app',
       'https://law-27h.pages.dev',
       'https://law-backend-lcvl.onrender.com',
+      // Add Render URL when available
+      'https://legalnest-api.onrender.com',
+      // Add your Render deploy subdomain when available
       // 'https://law-backend-44pr.onrender.com'
     ];
     
@@ -44,6 +47,7 @@ app.use(cors({
     // Check against regex patterns
     const regexPatterns = [
       /^https:\/\/law.*\.vercel\.app$/,
+      /^https:\/\/.*\.onrender\.com$/,
       /^http:\/\/192\.168\.\d+\.\d+:\d+$/,
       /^http:\/\/10\.\d+\.\d+\.\d+:\d+$/,
       /^http:\/\/172\.\d+\.\d+\.\d+:\d+$/
@@ -73,35 +77,9 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 // CORS preflight options handling
 app.options('*', cors());
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-})
-  .then(() => console.log('MongoDB Connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
-
 // Routes
 app.use('/api/articles', articleRoutes);
-
-// Health check endpoint useful for testing API connectivity
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'ok', 
-    message: 'API is running',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// CORS test endpoint
-app.get('/api/cors-test', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'CORS is working properly',
-    origin: req.headers.origin || 'No origin header',
-    timestamp: new Date().toISOString()
-  });
-});
+app.use('/api/health', healthRoutes);
 
 // Default route
 app.get('/', (req, res) => {
@@ -120,6 +98,24 @@ app.use((err, req, res, next) => {
 
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Access via http://localhost:${PORT} or http://YOUR_LOCAL_IP:${PORT}`);
+  // Get the local IP address using ESM import
+  import('os').then(({ networkInterfaces }) => {
+    const nets = networkInterfaces();
+    let localIp = 'localhost';
+    
+    // Find a suitable IPv4 address
+    for (const name of Object.keys(nets)) {
+      for (const net of nets[name]) {
+        // Skip internal and non-IPv4 addresses
+        if (net.family === 'IPv4' && !net.internal) {
+          localIp = net.address;
+          break;
+        }
+      }
+    }
+    
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Access via http://localhost:${PORT} or http://${localIp}:${PORT}`);
+  });
 });
